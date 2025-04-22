@@ -1,0 +1,45 @@
+from flask import Flask, request, jsonify, send_file
+import requests
+import os
+
+app = Flask(__name__)
+
+IA_API_URL = "https://api-inference.huggingface.co/models/CompVis/stable-diffusion-v1-4"
+IA_API_TOKEN = os.getenv("API_KEY")
+
+headers = {
+    "Authorization": f"Bearer {IA_API_TOKEN}"
+}
+
+@app.route("/transform", methods=["POST"])
+def transform():
+    if 'image' not in request.files:
+        return jsonify({"error": "Nenhuma imagem enviada."}), 400
+
+    image = request.files['image']
+    estilo = request.form.get('estilo', 'Boho')
+
+    response = requests.post(
+        IA_API_URL,
+        headers=headers,
+        files={"file": (image.filename, image, image.mimetype)},
+        data={"parameters": {"prompt": f"Interior design style {estilo}"}}
+    )
+
+    if response.status_code != 200:
+        return jsonify({"error": "Erro ao processar a imagem."}), 500
+
+    output = response.content
+
+    output_path = "output.png"
+    with open(output_path, "wb") as f:
+        f.write(output)
+
+    return send_file(output_path, mimetype='image/png')
+
+@app.route("/")
+def home():
+    return "Servidor de Estilização de Imagens rodando! 🚀"
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
